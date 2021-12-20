@@ -1,0 +1,16 @@
+{
+  "name": "layout-recalculate-detector",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.mjs",
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.0.0",
+    "chrome-profile-sourcemap-resolver": "^1.2.0",
+    "colors": "^1.4.0",
+    "puppeteer": "^13.0.0",
+    "tracium": "^0.2.1"
+  }
+}
