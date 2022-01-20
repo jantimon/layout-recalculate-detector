@@ -25,6 +25,13 @@ export const clsStartTracking = async (page) => {
       return segs(element).join("/");
     }
 
+    /** @param {HTMLElement} element */
+    const getNodeName = (element) => {
+      return `${element.tagName}${
+        element.className ? `.${element.className.replace(/ /g, ".")}` : ""
+      }`;
+    };
+
     const layoutShifts = [];
     const layoutShiftNodes = [];
     const observer = new PerformanceObserver((list) => {
@@ -32,18 +39,20 @@ export const clsStartTracking = async (page) => {
         if (!entry.hadRecentInput) {
           const entryNodes = [];
           layoutShiftNodes.push(entryNodes);
-          const diffs = (entry.sources || []).map(
-            ({ currentRect, previousRect, node }) => {
-              entryNodes.push(node);
-              return {
-                node: getXPathForElement(node),
-                x: currentRect.x - previousRect.x,
-                y: currentRect.y - previousRect.y,
-                height: currentRect.height - previousRect.height,
-                width: currentRect.width - previousRect.width,
-              };
-            }
-          );
+          /** @type {{node: HTMLElement, previousRect:{x:number,y:number;width:number;height:number}, currentRect:{x:number,y:number;width:number;height:number}}[]} */
+          const sources = entry.sources || [];
+          const diffs = sources.map(({ currentRect, previousRect, node }) => {
+            entryNodes.push(node);
+            const nodeName = (node.parentElement ? getNodeName(node.parentElement) + ' > ' + getNodeName(node) : getNodeName(node));
+            return {
+              nodeName,
+              xPath: getXPathForElement(node),
+              x: currentRect.x - previousRect.x,
+              y: currentRect.y - previousRect.y,
+              height: currentRect.height - previousRect.height,
+              width: currentRect.width - previousRect.width,
+            };
+          });
           layoutShifts.push({ value: entry.value, diffs });
         }
       }

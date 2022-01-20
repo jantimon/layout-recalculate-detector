@@ -23,6 +23,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
 
   await mkdir(screenshotDirectory, { recursive: true });
 
+  console.log("🚀 launch browser");
   const browser = await puppeteer.launch({ headless: false });
   const page = await browser.newPage();
 
@@ -37,14 +38,15 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
 
   await clsStartTracking(page);
 
-  console.log("🚀 start");
   await page.tracing.start({ path: tempName, screenshots: false });
 
+  console.log("\n🌎 open " + url);
   await page.goto(url, {
     waitUntil: "domcontentloaded",
     timeout: 120000,
   });
 
+  console.log(" - wait for network idle");
   try {
     await page.waitForNetworkIdle({ idleTime: 2000, timeout: 120000 });
   } catch (e) {
@@ -52,6 +54,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
   }
 
   // Scroll to bottom to trigger CLS
+  console.log(" - scroll to footer");
   await scrollToBottom(page);
   try {
     await page.waitForTimeout(3000);
@@ -60,6 +63,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
     console.warn("Network didn't idle");
   }
 
+  console.log("\n📐 gather metrics");
   await page.tracing.stop();
 
   const clsResult = await clsGetTrackingResult(page, screenshotDirectory);
@@ -134,18 +138,34 @@ function logLayoutShifts(layoutShifts) {
   layoutShifts.forEach(({ value, diffs }) => {
     console.log(`💥 CLS by ${(value * 100).toFixed(2)}%`);
     diffs.forEach((diff) => {
-      console.log(" " + diff.node);
+      console.log(" " + diff.nodeName);
+      console.log(" $x(`" + diff.xPath + "`)");
       if (diff.y) {
-        console.log( "moved down by " + diff.y + "px\n");
-      } else if(diff.x) {
-        console.log( "moved down by " + diff.x + "px\n");
+        console.log(
+          ` ${diff.y < 0 ? "⬆️" : "⬇️"} moved ${
+            diff.y > 0 ? "top" : "down"
+          } by ${Math.abs(diff.y)}px`
+        );
+      } else if (diff.x) {
+        console.log(
+          ` ${diff.x < 0 ? "⬅️" : "➡️"} moved ${
+            diff.x > 0 ? "right" : "left"
+          } by ${Math.abs(diff.x)}px`
+        );
       }
     });
+    console.log("");
   });
 }
 
 async function scrollToBottom(page) {
-  await page.evaluate(async () => {
-    window.scrollBy(0, 10000);
-  });
+  await page.evaluate(
+    async () =>
+      new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          window.scrollBy(0, 10000);
+        });
+        requestAnimationFrame(resolve);
+      })
+  );
 }
