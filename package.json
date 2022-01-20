@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.mjs",
+  "bin": {
+    "layout-recalculate-detector": "./index.mjs"
+  },
   "keywords": [],
   "author": "",
   "license": "MIT",

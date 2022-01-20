@@ -1,38 +1,81 @@
+#!/usr/bin/env node
+// @ts-check
 import puppeteer from "puppeteer";
-import { readFile } from "fs/promises";
+import { readFile, writeFile, mkdir } from "fs/promises";
 import { applySourceMapsForProfile } from "chrome-profile-sourcemap-resolver";
 import colors from "chalk";
+import { clsStartTracking, clsGetTrackingResult } from "./measurments/cls.mjs";
+import { resolve } from "path";
 
-const tempName = './profile.json';
+const resultDirectory = `measurments-${new Date()
+  .toLocaleString("en-US", { hour12: false })
+  .replace(/\D+/g, "-")}`;
+const tempName = resolve(resultDirectory, "./profile.json");
+const tempMappedName = resolve(resultDirectory, "./profile.mapped.json");
+const screenshotDirectory = resolve(resultDirectory, "./screenshots");
 
 (async () => {
-  const browser = await puppeteer.launch({ headless: false });
-  const page = await browser.newPage();
-  console.log("🚀 start");
-  await page.tracing.start({ path: tempName, screenshots: true });
-
   const url = process.argv[2];
   if (!url) {
-    console.log("url argument missing")
+    console.log("url argument missing");
     process.exit(0);
   }
 
+  await mkdir(screenshotDirectory, { recursive: true });
+
+  const browser = await puppeteer.launch({ headless: false });
+  const page = await browser.newPage();
+
+  // Browser Emulation
+  const chromeDevtoolsProtocolSession = await page.target().createCDPSession();
+  await chromeDevtoolsProtocolSession.send("Network.enable");
+  await chromeDevtoolsProtocolSession.send("ServiceWorker.enable");
+  await chromeDevtoolsProtocolSession.send("Emulation.setCPUThrottlingRate", {
+    rate: 4,
+  });
+  await page.emulate(puppeteer.devices["Nexus 5X"]);
+
+  await clsStartTracking(page);
+
+  console.log("🚀 start");
+  await page.tracing.start({ path: tempName, screenshots: false });
+
   await page.goto(url, {
-    waitUntil: 'domcontentloaded',
-    timeout: 120000
+    waitUntil: "domcontentloaded",
+    timeout: 120000,
   });
 
   try {
     await page.waitForNetworkIdle({ idleTime: 2000, timeout: 120000 });
-  } catch(e) {
+  } catch (e) {
+    console.warn("Network didn't idle");
+  }
+
+  // Scroll to bottom to trigger CLS
+  await scrollToBottom(page);
+  try {
+    await page.waitForTimeout(3000);
+    await page.waitForNetworkIdle({ idleTime: 2000, timeout: 2000 });
+  } catch (e) {
     console.warn("Network didn't idle");
   }
 
   await page.tracing.stop();
+
+  const clsResult = await clsGetTrackingResult(page, screenshotDirectory);
+
   await browser.close();
 
   const profile = await loadProfileWithSourceMaps(tempName);
+  await writeFile(tempMappedName, JSON.stringify(profile, null, 2));
+
+  console.log("\n\nStyle Recalculates / Layout Reflows");
+
   logRecalculates(profile);
+
+  console.log("\n\nLayout Shifts");
+
+  logLayoutShifts(clsResult);
 })();
 
 async function loadProfileWithSourceMaps(filename) {
@@ -45,7 +88,7 @@ function logRecalculates(profile) {
   const updateLayoutTreeEvents = {};
 
   traceEvents.forEach((traceEvent) => {
-    if (!traceEvent.name === "UpdateLayoutTree") return;
+    if (traceEvent.name !== "UpdateLayoutTree") return;
     const stackTrace = traceEvent.args.beginData?.stackTrace?.[0];
     if (!stackTrace) return;
 
@@ -73,11 +116,36 @@ function logRecalculates(profile) {
         )}` +
           ` took ${colors.yellow(`${(entry.duration / 1000).toFixed(2)} ms`)}`
       );
-      entry.functionName && console.log(`   fn: ${colors.green(entry.functionName)}`);
+      entry.functionName &&
+        console.log(`   fn: ${colors.green(entry.functionName)}`);
       console.log(
         `   ${entry.url}:${entry.lineNumber}${
           entry.columnNumber > 120 ? `:${entry.columnNumber}` : ""
         }\n`
       );
     });
+}
+
+function logLayoutShifts(layoutShifts) {
+  if (layoutShifts.length === 0) {
+    console.log("No layout shifts detected");
+    return;
+  }
+  layoutShifts.forEach(({ value, diffs }) => {
+    console.log(`💥 CLS by ${(value * 100).toFixed(2)}%`);
+    diffs.forEach((diff) => {
+      console.log(" " + diff.node);
+      if (diff.y) {
+        console.log( "moved down by " + diff.y + "px\n");
+      } else if(diff.x) {
+        console.log( "moved down by " + diff.x + "px\n");
+      }
+    });
+  });
+}
+
+async function scrollToBottom(page) {
+  await page.evaluate(async () => {
+    window.scrollBy(0, 10000);
+  });
 }
