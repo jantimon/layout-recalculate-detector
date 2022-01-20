@@ -143,7 +143,7 @@ function logLayoutShifts(layoutShifts) {
       if (diff.y) {
         console.log(
           ` ${diff.y < 0 ? "⬆️" : "⬇️"} moved ${
-            diff.y > 0 ? "top" : "down"
+            diff.y > 0 ? "down" : "top"
           } by ${Math.abs(diff.y)}px`
         );
       } else if (diff.x) {
