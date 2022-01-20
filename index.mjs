@@ -24,7 +24,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
   await mkdir(screenshotDirectory, { recursive: true });
 
   console.log("🚀 launch browser");
-  const browser = await puppeteer.launch({ headless: false });
+  const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
 
   // Browser Emulation
