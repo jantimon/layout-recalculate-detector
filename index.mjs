@@ -20,6 +20,11 @@ const cliArgs = typeFlag({
     default: true,
   },
 
+  cpuThrottling: {
+    type: Number,
+    default: 4
+  },
+
   device: {
     type: (device) => {
       if (!puppeteer.devices[device]) {
@@ -43,9 +48,10 @@ if (cliArgs.flags.help) {
   console.log(`npx github:jantimon/layout-recalculate-detector [options] url
 
 Options:
-  --showBrowser   run tests in a visible browser (non headless)
-  --scrollDown    scroll to the bottom of the page once its loaded
-  --device X      emulate the given device - default: "Nexus 5X"
+  --showBrowser       run tests in a visible browser (non headless)
+  --scrollDown        scroll to the bottom of the page once its loaded
+  --device X          emulate the given device - default: "Nexus 5X"
+  --cpuThrottling     emulated cpu slow down - default: 4
 `);
   process.exit(0);
 }
@@ -60,7 +66,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
 (async () => {
   const url = cliArgs._[0];
   const headless = !cliArgs.flags.showBrowser;
-  const { scrollDown, device } = cliArgs.flags;
+  const { scrollDown, device, cpuThrottling } = cliArgs.flags;
   if (!url) {
     console.log("url argument missing");
     process.exit(0);
@@ -77,7 +83,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
   await chromeDevtoolsProtocolSession.send("Network.enable");
   await chromeDevtoolsProtocolSession.send("ServiceWorker.enable");
   await chromeDevtoolsProtocolSession.send("Emulation.setCPUThrottlingRate", {
-    rate: 4,
+    rate: cpuThrottling,
   });
   await page.emulate(puppeteer.devices[device]);
 
