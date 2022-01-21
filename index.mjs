@@ -6,34 +6,37 @@ import { applySourceMapsForProfile } from "chrome-profile-sourcemap-resolver";
 import colors from "chalk";
 import { clsStartTracking, clsGetTrackingResult } from "./measurments/cls.mjs";
 import { resolve } from "path";
-import typeFlag from 'type-flag'
+import typeFlag from "type-flag";
 
 const cliArgs = typeFlag({
-
   showBrowser: {
-      type: Boolean,
-      alias: 'b',
-      default: false
+    type: Boolean,
+    alias: "b",
+    default: false,
   },
 
   scrollDown: {
-      type: Boolean,
-      default: true
+    type: Boolean,
+    default: true,
   },
 
-  device: (device) => {
-    if (!device) return 'Nexus 5X'
-    if (!puppeteer.devices[device]) {
-      console.error("Invalid device. Possible devices:\n - " + Object.keys(puppeteer.devices).join('\n - '));
-      process.exit(1);
-    }
-    return device;
+  device: {
+    type: (device) => {
+      if (!puppeteer.devices[device]) {
+        console.error(
+          "Invalid device. Possible devices:\n - " +
+            Object.keys(puppeteer.devices).join("\n - ")
+        );
+        process.exit(1);
+      }
+      return device;
+    },
+    default: "Nexus 5X",
   },
 
   help: {
-      type: Boolean,
+    type: Boolean,
   },
-
 });
 
 if (cliArgs.flags.help) {
@@ -57,7 +60,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
 (async () => {
   const url = cliArgs._[0];
   const headless = !cliArgs.flags.showBrowser;
-  const {scrollDown, device} = cliArgs.flags;
+  const { scrollDown, device } = cliArgs.flags;
   if (!url) {
     console.log("url argument missing");
     process.exit(0);
@@ -89,7 +92,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
       waitUntil: "domcontentloaded",
       timeout: 120000,
     });
-  } catch(e) {
+  } catch (e) {
     console.warn("Page load took to long");
   }
 
