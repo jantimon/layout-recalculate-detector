@@ -6,6 +6,36 @@ import { applySourceMapsForProfile } from "chrome-profile-sourcemap-resolver";
 import colors from "chalk";
 import { clsStartTracking, clsGetTrackingResult } from "./measurments/cls.mjs";
 import { resolve } from "path";
+import typeFlag from 'type-flag'
+
+const cliArgs = typeFlag({
+
+  showBrowser: {
+      type: Boolean,
+      alias: 'b',
+      default: false
+  },
+
+  scrollDown: {
+      type: Boolean,
+      default: true
+  },
+
+  help: {
+      type: Boolean,
+  },
+
+});
+
+if (cliArgs.flags.help) {
+  console.log(`npx github:jantimon/layout-recalculate-detector [options] url
+
+Options:
+  --showBrowser   run tests in a visible browser (non headless)
+  --scrollDown    scroll to the bottom of the page once its loaded
+`);
+  process.exit(0);
+}
 
 const resultDirectory = `measurments-${new Date()
   .toLocaleString("en-US", { hour12: false })
@@ -15,7 +45,9 @@ const tempMappedName = resolve(resultDirectory, "./profile.mapped.json");
 const screenshotDirectory = resolve(resultDirectory, "./screenshots");
 
 (async () => {
-  const url = process.argv[2];
+  const url = cliArgs._[0];
+  const headless = !cliArgs.flags.showBrowser;
+  const scrollDown = cliArgs.flags.scrollDown;
   if (!url) {
     console.log("url argument missing");
     process.exit(0);
@@ -24,7 +56,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
   await mkdir(screenshotDirectory, { recursive: true });
 
   console.log("🚀 launch browser");
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({ headless });
   const page = await browser.newPage();
 
   // Browser Emulation
@@ -41,10 +73,15 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
   await page.tracing.start({ path: tempName, screenshots: false });
 
   console.log("\n🌎 open " + url);
-  await page.goto(url, {
-    waitUntil: "domcontentloaded",
-    timeout: 120000,
-  });
+
+  try {
+    await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: 120000,
+    });
+  } catch(e) {
+    console.warn("Page load took to long");
+  }
 
   console.log(" - wait for network idle");
   try {
@@ -53,14 +90,16 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
     console.warn("Network didn't idle");
   }
 
-  // Scroll to bottom to trigger CLS
-  console.log(" - scroll to footer");
-  await scrollToBottom(page);
-  try {
-    await page.waitForTimeout(3000);
-    await page.waitForNetworkIdle({ idleTime: 2000, timeout: 2000 });
-  } catch (e) {
-    console.warn("Network didn't idle");
+  if (scrollDown) {
+    // Scroll to bottom to trigger CLS
+    console.log(" - scroll to footer");
+    await scrollToBottom(page);
+    try {
+      await page.waitForTimeout(3000);
+      await page.waitForNetworkIdle({ idleTime: 2000, timeout: 2000 });
+    } catch (e) {
+      console.warn("Network didn't idle");
+    }
   }
 
   console.log("\n📐 gather metrics");
@@ -80,6 +119,8 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
   console.log("\n\nLayout Shifts");
 
   logLayoutShifts(clsResult);
+
+  console.log("\n💾 Wrote measurements to ", screenshotDirectory);
 })();
 
 async function loadProfileWithSourceMaps(filename) {

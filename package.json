@@ -1,6 +1,6 @@
 {
   "name": "layout-recalculate-detector",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "",
   "main": "index.mjs",
   "bin": {
@@ -13,7 +13,9 @@
     "chalk": "^5.0.0",
     "chrome-profile-sourcemap-resolver": "^1.2.0",
     "colors": "^1.4.0",
+    "devtools-timeline-parser": "^0.2.1",
     "puppeteer": "^13.0.0",
     "tracium": "^0.2.1"
+    "type-flag": "^2.0.0"
   }
 }
