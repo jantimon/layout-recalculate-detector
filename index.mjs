@@ -21,6 +21,15 @@ const cliArgs = typeFlag({
       default: true
   },
 
+  device: (device) => {
+    if (!device) return 'Nexus 5X'
+    if (!puppeteer.devices[device]) {
+      console.error("Invalid device. Possible devices:\n - " + Object.keys(puppeteer.devices).join('\n - '));
+      process.exit(1);
+    }
+    return device;
+  },
+
   help: {
       type: Boolean,
   },
@@ -33,6 +42,7 @@ if (cliArgs.flags.help) {
 Options:
   --showBrowser   run tests in a visible browser (non headless)
   --scrollDown    scroll to the bottom of the page once its loaded
+  --device X      emulate the given device - default: "Nexus 5X"
 `);
   process.exit(0);
 }
@@ -47,7 +57,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
 (async () => {
   const url = cliArgs._[0];
   const headless = !cliArgs.flags.showBrowser;
-  const scrollDown = cliArgs.flags.scrollDown;
+  const {scrollDown, device} = cliArgs.flags;
   if (!url) {
     console.log("url argument missing");
     process.exit(0);
@@ -66,7 +76,7 @@ const screenshotDirectory = resolve(resultDirectory, "./screenshots");
   await chromeDevtoolsProtocolSession.send("Emulation.setCPUThrottlingRate", {
     rate: 4,
   });
-  await page.emulate(puppeteer.devices["Nexus 5X"]);
+  await page.emulate(puppeteer.devices[device]);
 
   await clsStartTracking(page);
 
